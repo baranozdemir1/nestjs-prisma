@@ -3,21 +3,51 @@ import { DatabaseService } from '../database/database.service';
 import { Prisma } from '@prisma/client';
 import { hash } from 'bcryptjs';
 import { RegisterDto } from '../auth/dto/register.dto';
-import { exclude } from '../utils/helper';
+import { Helper } from '../utils/helper';
+import { MailerService } from '../mailer/mailer.service';
 
 @Injectable()
 export class UserService {
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(
+    private readonly databaseService: DatabaseService,
+    private readonly mailerService: MailerService,
+  ) {}
 
   async create(createUserDto: RegisterDto) {
+    const userExists = await this.databaseService.user.findUnique({
+      where: {
+        email: createUserDto.email,
+      },
+    });
+
+    if (userExists) throw new NotFoundException('User already exists');
+
+    const verificationToken = Helper.generateVerificationToken();
+    const verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await this.mailerService.send({
+      recipients: [createUserDto.email],
+      subject: 'Verify your email',
+      html: `<p>Click <a href="http://localhost:3000/auth/verify/${verificationToken}">here</a> to verify your email</p>`,
+    });
+
     const user = await this.databaseService.user.create({
       data: {
         ...createUserDto,
         password: await hash(createUserDto.password, 10),
+        verificationToken,
+        verificationTokenExpires,
       },
     });
 
-    return exclude(user, ['password']);
+    return Helper.exclude(user, [
+      'password',
+      'refreshToken',
+      'resetPasswordToken',
+      'resetPasswordExpires',
+      'verificationTokenExpires',
+      'verificationToken',
+    ]);
   }
 
   async findAll() {
@@ -51,7 +81,7 @@ export class UserService {
     // @todo: Implement email verification
     // if (!user.isVerified) throw new UnauthorizedException('User not verified');
 
-    return exclude(user, ['password']);
+    return Helper.exclude(user, ['password']);
   }
 
   update(id: string, updateUserDto: Prisma.UserUpdateInput) {
