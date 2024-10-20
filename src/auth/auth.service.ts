@@ -5,7 +5,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Prisma, User } from '@prisma/client';
 import { Response } from 'express';
 import { TokenPayload } from '../interface/token-payload.interface';
-import { exclude } from '../utils/helper';
+import { Helper } from '../utils/helper';
 
 @Injectable()
 export class AuthService {
@@ -77,7 +77,7 @@ export class AuthService {
     //   throw new UnauthorizedException('Email not verified');
     // }
 
-    return exclude(user, ['password']);
+    return Helper.exclude(user, ['password']);
   }
 
   async validateUserRefreshToken(refreshToken: string, userId: string) {
@@ -90,6 +90,13 @@ export class AuthService {
   }
 
   async register(registerDto: Prisma.UserCreateInput) {
-    return this.userService.create(registerDto);
+    const user = await this.userService.create(registerDto);
+
+    if (!user) throw new UnauthorizedException('User not created');
+
+    return {
+      success: true,
+      message: 'User created successfully',
+    };
   }
 }
