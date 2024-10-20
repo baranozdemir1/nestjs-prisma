@@ -94,14 +94,4 @@ export class CreateProductDto {
   @ValidateNested()
   @Type(() => FeaturedImageDto)
   featuredImage: FeaturedImageDto;
-
-  // categories      ProductCategory[]
-  // tags            ProductTag[]
-  // gallery         ProductGallery[]
-  // attributes      Attribute[]
-  // variations      Variation[]
-  // reviews         ProductReview[]
-  // createdAt       DateTime          @default(now())
-  // updatedAt       DateTime          @updatedAt
-  // OrderItem       OrderItem[]
 }
