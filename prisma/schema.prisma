@@ -26,6 +26,7 @@ model User {
   resetPasswordExpires     DateTime?
   verificationToken        String?
   verificationTokenExpires DateTime?
+  refreshToken             String?
   productReviews           ProductReview[]
   orders                   Order[]
   createdAt                DateTime        @default(now())
