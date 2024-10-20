@@ -6,37 +6,48 @@ import { Prisma, User } from '@prisma/client';
 import { Response } from 'express';
 import { TokenPayload } from '../interface/token-payload.interface';
 import { Helper } from '../utils/helper';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly userService: UserService,
     private readonly jwtService: JwtService,
+    private configService: ConfigService,
   ) {}
 
   async login(user: User, response: Response, redirect = false) {
     const expiresAccessToken = new Date();
     expiresAccessToken.setMilliseconds(
       expiresAccessToken.getTime() +
-        parseInt(process.env.JWT_ACCESS_TOKEN_EXPIRATION_MS),
+        parseInt(
+          this.configService.getOrThrow<string>(
+            'JWT_ACCESS_TOKEN_EXPIRATION_MS',
+          ),
+        ),
     );
 
     const expiresRefreshToken = new Date();
     expiresRefreshToken.setMilliseconds(
       expiresRefreshToken.getTime() +
-        parseInt(process.env.JWT_REFRESH_TOKEN_EXPIRATION_MS),
+        parseInt(
+          this.configService.getOrThrow<string>(
+            'JWT_REFRESH_TOKEN_EXPIRATION_MS',
+          ),
+        ),
     );
 
     const tokenPayload: TokenPayload = {
       userId: user.id,
     };
+    
     const accessToken = this.jwtService.sign(tokenPayload, {
-      secret: process.env.JWT_ACCESS_TOKEN_SECRET,
-      expiresIn: `${process.env.JWT_ACCESS_TOKEN_EXPIRATION_MS}ms`,
+      secret: this.configService.getOrThrow<string>('JWT_ACCESS_TOKEN_SECRET'),
+      expiresIn: `${this.configService.getOrThrow<string>('JWT_ACCESS_TOKEN_EXPIRATION_MS')}ms`,
     });
     const refreshToken = this.jwtService.sign(tokenPayload, {
-      secret: process.env.JWT_REFRESH_TOKEN_SECRET,
-      expiresIn: `${process.env.JWT_REFRESH_TOKEN_EXPIRATION_MS}ms`,
+      secret: this.configService.getOrThrow<string>('JWT_REFRESH_TOKEN_SECRET'),
+      expiresIn: `${this.configService.getOrThrow<string>('JWT_REFRESH_TOKEN_EXPIRATION_MS')}ms`,
     });
 
     await this.userService.update(user.id, {
@@ -46,18 +57,22 @@ export class AuthService {
     response.cookie('Authentication', accessToken, {
       expires: expiresAccessToken,
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure:
+        this.configService.getOrThrow<string>('NODE_ENV') === 'production',
       sameSite: 'strict',
     });
     response.cookie('Refresh', refreshToken, {
       expires: expiresRefreshToken,
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure:
+        this.configService.getOrThrow<string>('NODE_ENV') === 'production',
       sameSite: 'strict',
     });
 
     if (redirect) {
-      response.redirect(process.env.AUTH_REDIRECT_URL || '/');
+      response.redirect(
+        this.configService.getOrThrow<string>('AUTH_REDIRECT_URL') || '/',
+      );
     }
 
     return {
