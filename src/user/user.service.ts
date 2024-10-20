@@ -3,34 +3,40 @@ import { DatabaseService } from '../database/database.service';
 import { Prisma } from '@prisma/client';
 import { hash } from 'bcryptjs';
 import { RegisterDto } from '../auth/dto/register.dto';
+import { exclude } from '../utils/helper';
 
 @Injectable()
 export class UserService {
   constructor(private readonly databaseService: DatabaseService) {}
 
   async create(createUserDto: RegisterDto) {
-    return this.databaseService.user.create({
+    const user = await this.databaseService.user.create({
       data: {
         ...createUserDto,
         password: await hash(createUserDto.password, 10),
       },
     });
+
+    return exclude(user, ['password']);
   }
 
   async findAll() {
-    return this.databaseService.user.findMany();
+    const users = await this.databaseService.user.findMany();
+    if (!users) throw new NotFoundException('No users found');
+
+    for (const user of users) {
+      delete user.password;
+    }
+
+    return users;
   }
 
   async findByEmail(email: string) {
-    const user = await this.databaseService.user.findUnique({
+    return this.databaseService.user.findUnique({
       where: {
         email,
       },
     });
-
-    if (!user) throw new NotFoundException('User not found');
-
-    return user;
   }
 
   async findOne(id: string) {
@@ -42,7 +48,10 @@ export class UserService {
 
     if (!user) throw new NotFoundException('User not found');
 
-    return user;
+    // @todo: Implement email verification
+    // if (!user.isVerified) throw new UnauthorizedException('User not verified');
+
+    return exclude(user, ['password']);
   }
 
   update(id: string, updateUserDto: Prisma.UserUpdateInput) {
